@@ -1,0 +1,309 @@
+util.keep_running()
+util.require_natives(1681379138)
+
+--getting the webhook URL from the webhook_url txt--
+local file = io.open(filesystem.store_dir() .. "\\Webhook Url\\webhook_url.txt", "r")
+local webhook_url = file:read("a")
+file:close()
+
+--if the URL does not start with '/api' and also not with 'https://discord.com/api/webhooks' then delete the insides of the file--
+if string.len(webhook_url) > 0 and not string.startswith(webhook_url, "/api") and not string.startswith(webhook_url, "https://discord.com/api/webhooks") then
+    util.toast("You have set an invalid webhook URL,\nDeleting webhook")
+    local file = io.open(filesystem.store_dir() .. "\\Webhook Url\\webhook_url.txt", "w")
+    file:close()
+end
+
+--if no URL is set then make a new action that u can set your webhook URL--
+if string.len(webhook_url) == 0 then
+    util.toast("No webhook URL set, set this with the option 'Set Webhook Url'\nDon't share your webhook URL")
+    menu.my_root():action("Set Webhook Url", {"setwebhookurl"}, "!Warning!: don't share your webhook URL.\nThis will write your webhook URL to a file.", function()
+        menu.show_command_box("setwebhookurl ")
+    end, function(webhook_url)
+        if string.startswith(webhook_url, "/api") then
+            write_url_to_file(filesystem.store_dir() .. "\\Webhook Url\\webhook_url.txt", webhook_url)
+            util.restart_script()
+        elseif string.startswith(webhook_url, "https://discord.com/api/webhooks") then
+            webhook_url = string.sub(webhook_url, string.lfind(webhook_url, "/api"))
+            write_url_to_file(filesystem.store_dir() .. "\\Webhook Url\\webhook_url.txt", webhook_url)
+            util.restart_script()
+        else
+            util.toast("Invalid URL make sure it starts with: 'https://discord.com/api/webhooks' or '/api/webhooks'")
+        end
+    end)
+end
+
+--excludes--
+local send_detections_to_webhook = true
+local send_new_session_to_webhook = true
+local send_chat_massages_to_webhook = true
+local show_session_code_when_new_session = true
+
+-------------
+--FUNCTIONS--
+-------------
+--gets the session code--
+local function get_session_code_for_user()
+    while true do
+        local applicable, code = util.get_session_code()
+        if applicable then
+            if code then
+                return code
+            end
+        else
+            break
+        end
+        util.yield(50)
+    end
+    return "N/A"
+end
+
+--writes the webhook URL to the specified path--
+function write_url_to_file(file_path, webhook_url)
+    local file = io.open(file_path, "w")
+    file:write(webhook_url)
+    file:close()
+    util.toast("Webhook URL successfully written to file.\nRestarting script to apply the webhook URL.")
+end
+
+--sends detections/classifications, new session and chat messages--
+function send_to_webhook(pid, detection, new_session, chat_message)
+    local author_name = ""
+    local description = ""
+    local timestamp = os.date("%d/%m/%Y") .. " " .. os.date("%I:%M %p") .. " (UTC" .. os.date("%z") .. ")"
+
+    if pid and detection and not new_session and not chat_message and not difference and not last_money then
+        if not send_detections_to_webhook then
+            return
+        end
+        local player_name = players.get_name(pid)
+        local RID = players.get_rockstar_id(pid)
+        local player_tags = players.get_tags_string(pid)
+        player_tags = (string.len(player_tags) > 0) and player_tags or "No tags found"
+        author_name = "Detections/Classification"
+        description = "Name: " .. player_name .. "\\n" ..
+                      "Detection: " .. detection .. "\\n" ..
+                      "RID: " .. RID .. "\\n" ..
+                      "Tags: " .. player_tags .. "\\n\\n"
+    elseif not pid and not detection and new_session and not chat_message and not difference and not last_money then
+        if not send_new_session_to_webhook then
+            return
+        end
+        author_name = "New Session"
+        local player_list = players.list(false, true, true)
+        if next(player_list) != nil then
+            local session_code = get_session_code_for_user()
+            description = "You are in Online\\n" .. (show_session_code_when_new_session and ("Session code: " .. session_code .. "\\n\\n") or "\\n")
+            for i, pid in player_list do
+                local player_name = players.get_name(pid)
+                local RID = players.get_rockstar_id(pid)
+                local player_tags = players.get_tags_string(pid)
+                if string.len(player_tags) > 0 then
+                    description = description .. "Name: " .. player_name .. ",\\n" ..
+                                  "Tags: " .. player_tags .. ", RID: " .. RID .. "\\n\\n"
+                else
+                    description = description .. player_name .. ",\\n" ..
+                                  "Tags: No tags found, RID: " .. RID .. "\\n\\n"
+                end
+            end
+        else
+            local session_code = get_session_code_for_user()
+            if session_code == "N/A" then
+                description = "No Players Found,\\nYour in Story Mode.\\n\\n"
+            else
+                description = "No Players Found,\\nYou are in Online, in a session alone.\\n\\n"
+            end
+        end
+    elseif pid and not detection and not new_session and chat_message and not difference and not last_money then
+        if not send_chat_massages_to_webhook then
+            return
+        end
+        author_name = "Chat"
+        local player_name = players.get_name(pid)
+        description = "New chat message:\\n\\n" ..
+                      player_name .. ": " .. chat_message .. "\\n\\n"
+    end
+
+    local body = [[
+        {
+            "content": null,
+            "embeds": [
+              {
+                "description": "]] .. description .. timestamp .. [[",
+                "color": null,
+                "author": {
+                  "name": "]] .. author_name .. [[",
+                  "icon_url": "https://cdn.discordapp.com/icons/956618713157763072/a_712ab34950f69d6f6f62d76c117862fb.webp?size=80"
+                }
+              }
+            ],
+            "username": "Stand Webhook",
+            "avatar_url": "https://cdn.discordapp.com/icons/956618713157763072/a_712ab34950f69d6f6f62d76c117862fb.webp?size=80",
+            "attachments": []
+          }
+    ]]
+
+    async_http.init("discord.com", webhook_url, function() end, function() end)
+    async_http.set_post("application/json", body)
+    async_http.dispatch()
+end
+
+--gets detections/classifications from the log file--
+local lastFileLength = 0
+function check_for_new_detections_and_class()
+    local file_path = filesystem.stand_dir() .. "Log.txt"
+    local file = io.open(file_path, "r")
+    if not file then return end
+
+    local currentFileLength = file:seek("end")
+    if lastFileLength == 0 or currentFileLength < lastFileLength then
+        lastFileLength = currentFileLength
+        file:close()
+        return
+    elseif currentFileLength == lastFileLength then
+        file:close()
+        return
+    end
+
+    file:seek("set", lastFileLength)
+    local new_detections = {}
+    local detected_player_id = nil
+    for line in file:lines() do
+        if string.contains(line, " triggered a detection:") or string.contains(line, " is now classified") then
+            local timestamp_end = string.find(line, "%]")
+            local new_line = string.sub(line, timestamp_end + 1)
+            local name = string.match(new_line, "^%s*([%-%w_]+)")
+            local line_no_name = string.gsub(new_line, "^%s*([%-%w_]+) triggered a detection:?%s*", "")
+            for i, pid in players.list(false, true, true) do
+                local player_name = players.get_name(pid)
+                if player_name == name then
+                    detected_player_id = pid
+                end
+            end
+            table.insert(new_detections, {detection = line_no_name, pid = detected_player_id})
+        end
+    end
+
+    lastFileLength = currentFileLength
+    file:close()
+    
+    for i, detection in new_detections do
+        if detection.pid != nil and players.exists(detection.pid) then
+            send_to_webhook(detection.pid, detection.detection, false, false)
+        end
+    end
+end
+
+-----------
+--OPTIONS--
+-----------
+--sets a new webhook URL if u want to change it--
+menu.my_root():action("Set New Webhook URL", {"newwebhookurl"}, "Lets you set a new webhook URL if you want to change it, !Warning!: don't share your webhook URL", function()
+    menu.show_command_box("newwebhookurl ")
+end, function(webhook_url)
+    if string.startswith(webhook_url, "/api") then
+        write_url_to_file(filesystem.store_dir() .. "\\Webhook Url\\webhook_url.txt", webhook_url)
+        util.restart_script()
+    elseif string.startswith(webhook_url, "https://discord.com/api/webhooks") then
+        webhook_url = string.sub(webhook_url, string.lfind(webhook_url, "/api"))
+        write_url_to_file(filesystem.store_dir() .. "\\Webhook Url\\webhook_url.txt", webhook_url)
+        util.restart_script()
+    else
+        util.toast("Invalid URL make sure it starts with: 'https://discord.com/api/webhooks' or '/api/webhooks'")
+    end
+end)
+
+local excludes_list = menu.my_root():list("Excludes")
+--if on then it will send detections if off it wont--
+excludes_list:toggle("Send Detections To Webhook", {}, "", function(on)
+    send_detections_to_webhook = on
+end, true)
+
+--if on then it will send when a new session is joined with the players in the session with the tags for each player, will also ouput if ur in story mode or not--
+excludes_list:toggle("Send New Session To Webhook", {}, "", function(on)
+    send_new_session_to_webhook = on
+end, true)
+
+--if on then it will send chat messages to the webhook--
+excludes_list:toggle("Send Chat To Webhook", {}, "", function(on)
+    send_chat_massages_to_webhook = on
+end, true)
+
+--if on then it will output the session code, "send new session to webhook" needs to be on for this--
+excludes_list:toggle("Show Session Code", {}, "If u disable this it wont output the session code when u join a new session.", function(on)
+    show_session_code_when_new_session = on
+end, true)
+
+--the refs for logging detections/classifications to the log file--
+local refs = {
+    menu.ref_by_path("Online>Protections>Detections>Any Detection>Write To Log File"),
+    menu.ref_by_path("Online>Protections>Detections>Classifications>Any Classification>Write To Log File"),
+}
+--if on it checks for new session, chat message and detections/classifications--
+local values = {}
+webhook_toggle = menu.my_root():toggle("Webhook", {}, "", function(on)
+    if on then
+        --set the value of the refs to enable, so this will log everything it detects--
+        for i, ref in refs do
+            values[i] = ref.value
+            ref.value = 3
+        end
+
+        --does something when the transition is finished (so a new session), in this case we send info too the webhook--
+        new_session_handler = util.on_transition_finished(function()
+            send_to_webhook(false, false, true, false)
+        end)
+
+        --does something when a new chat message is send in the game chat--
+        chat.on_message(function(packet_sender, message_sender, text, team_chat)
+            send_to_webhook(message_sender, false, false, text)
+        end)
+
+        --while on == true then check for new detections (it already sends it to the webhook in the function) every second--
+        while on do
+            check_for_new_detections_and_class()
+            on = webhook_toggle.value
+            util.yield(1000)
+        end
+    end
+    if not on then
+        --stop the on_transition_finished handler--
+        util.remove_handler(new_session_handler)
+        --set the values of the option we have put to enable back as how there were--
+        for i, ref in refs do
+            ref.value = values[i]
+        end
+    end
+end)
+
+--------
+--LOGO--
+--------
+--logo loading when script starts--
+if SCRIPT_MANUAL_START and not SCRIPT_SILENT_START then
+    util.create_thread(function()
+        local logo = directx.create_texture(filesystem.resources_dir() .. "\\NovaHook\\NovaHook_logo.png")
+
+        local l = -100
+        while l <= 90 do
+            for j = 1, 195, 5 do
+                directx.draw_texture(logo, 0.10, 0.10, 0.5, 0.5, l/1000, 0.73, 0, {r = 1, g = 1, b = 1, a = j/255})
+                util.yield(0)
+                l = l + 5
+            end
+        end
+
+        for i = 1, 220 do
+            directx.draw_texture(logo, 0.10, 0.10, 0.5, 0.5, 0.09, 0.73, 0, {r = 1, g = 1, b = 1, a = 255})
+            util.yield(0)
+        end
+
+        local k = 90
+        while k >= -10 do
+            for j = 195, 1, -5 do
+                directx.draw_texture(logo, 0.10, 0.10, 0.5, 0.5, k/1000, 0.73, 0, {r = 1, g = 1, b = 1, a = j/255})
+                util.yield(0)
+                k = k - 5
+            end
+        end
+    end)
+end
