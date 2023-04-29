@@ -330,7 +330,7 @@ settings_list:action("Check for Update", {}, "The script will automatically chec
     end
 end)
 
-settings_list:action(T("Clean Reinstall"), {}, T("Force an update to the latest version, regardless of current version."), function()
+settings_list:action("Clean Reinstall", {}, "Force an update to the latest version, regardless of current version.", function()
     auto_update_config.clean_reinstall = true
     auto_updater.run_auto_update(auto_update_config)
 end)
