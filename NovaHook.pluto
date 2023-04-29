@@ -300,7 +300,7 @@ webhook_toggle = menu.my_root():toggle("Webhook", {}, "", function(on)
         end)
 
         --does something when a new chat message is send in the game chat--
-        chat.on_message(function(packet_sender, message_sender, text, team_chat)
+        new_chat_handler = chat.on_message(function(packet_sender, message_sender, text, team_chat)
             send_to_webhook(message_sender, false, false, text)
         end)
 
@@ -314,6 +314,7 @@ webhook_toggle = menu.my_root():toggle("Webhook", {}, "", function(on)
     if not on then
         --stop the on_transition_finished handler--
         util.remove_handler(new_session_handler)
+        util.remove_handler(new_chat_handler)
         --set the values of the option we have put to enable back as how there were--
         for i, ref in refs do
             ref.value = values[i]
