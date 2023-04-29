@@ -178,12 +178,12 @@ function send_to_webhook(pid, detection, new_session, chat_message)
                 "color": null,
                 "author": {
                   "name": "]] .. author_name .. [[",
-                  "icon_url": "https://cdn.discordapp.com/icons/956618713157763072/a_712ab34950f69d6f6f62d76c117862fb.webp?size=80"
+                  "icon_url": "https://cdn.discordapp.com/attachments/1053228267370450984/1101925893322051686/NovaHook_webhook_logo.png"
                 }
               }
             ],
             "username": "Stand Webhook",
-            "avatar_url": "https://cdn.discordapp.com/icons/956618713157763072/a_712ab34950f69d6f6f62d76c117862fb.webp?size=80",
+            "avatar_url": "https://cdn.discordapp.com/attachments/1053228267370450984/1101925893322051686/NovaHook_webhook_logo.png",
             "attachments": []
           }
     ]]
