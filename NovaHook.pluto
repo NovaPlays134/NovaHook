@@ -35,14 +35,7 @@ local auto_update_config = {
     silent_updates=true,
     dependencies={
         {
-            name="ent_func",
-            source_url="https://raw.githubusercontent.com/NovaPlays134/NovaHook/main/store/NovaHook/webhook_url.txt",
-            script_relpath="store/NovaHook/webhook_url.txt",
-            check_interval=default_check_interval,
-        },
-
-        {
-            name="translations",
+            name="logo",
             source_url="https://raw.githubusercontent.com/NovaPlays134/NovaHook/main/resources/NovaHook/NovaHook_logo.png",
             script_relpath="resources/NovaHook/NovaHook_logo.png",
             check_interval=default_check_interval,
@@ -55,7 +48,7 @@ util.keep_running()
 util.require_natives(1681379138)
 
 --getting the webhook URL from the webhook_url txt--
-local file = io.open(filesystem.store_dir() .. "\\Webhook Url\\webhook_url.txt", "r")
+local file = io.open(filesystem.store_dir() .. "\\NovaHook\\webhook_url.txt", "r")
 local webhook_url = file:read("a")
 file:close()
 
@@ -73,11 +66,11 @@ if string.len(webhook_url) == 0 then
         menu.show_command_box("setwebhookurl ")
     end, function(webhook_url)
         if string.startswith(webhook_url, "/api") then
-            write_url_to_file(filesystem.store_dir() .. "\\Webhook Url\\webhook_url.txt", webhook_url)
+            write_url_to_file(filesystem.store_dir() .. "\\NovaHook\\webhook_url.txt", webhook_url)
             util.restart_script()
         elseif string.startswith(webhook_url, "https://discord.com/api/webhooks") then
             webhook_url = string.sub(webhook_url, string.lfind(webhook_url, "/api"))
-            write_url_to_file(filesystem.store_dir() .. "\\Webhook Url\\webhook_url.txt", webhook_url)
+            write_url_to_file(filesystem.store_dir() .. "\\NovaHook\\webhook_url.txt", webhook_url)
             util.restart_script()
         else
             util.toast("Invalid URL make sure it starts with: 'https://discord.com/api/webhooks' or '/api/webhooks'")
@@ -254,11 +247,11 @@ menu.my_root():action("Set New Webhook URL", {"newwebhookurl"}, "Lets you set a 
     menu.show_command_box("newwebhookurl ")
 end, function(webhook_url)
     if string.startswith(webhook_url, "/api") then
-        write_url_to_file(filesystem.store_dir() .. "\\Webhook Url\\webhook_url.txt", webhook_url)
+        write_url_to_file(filesystem.store_dir() .. "\\NovaHook\\webhook_url.txt", webhook_url)
         util.restart_script()
     elseif string.startswith(webhook_url, "https://discord.com/api/webhooks") then
         webhook_url = string.sub(webhook_url, string.lfind(webhook_url, "/api"))
-        write_url_to_file(filesystem.store_dir() .. "\\Webhook Url\\webhook_url.txt", webhook_url)
+        write_url_to_file(filesystem.store_dir() .. "\\NovaHook\\webhook_url.txt", webhook_url)
         util.restart_script()
     else
         util.toast("Invalid URL make sure it starts with: 'https://discord.com/api/webhooks' or '/api/webhooks'")
@@ -327,6 +320,22 @@ webhook_toggle = menu.my_root():toggle("Webhook", {}, "", function(on)
         end
     end
 end)
+
+local settings_list = menu.my_root():list("Settings")
+
+settings_list:action("Check for Update", {}, "The script will automatically check for updates at most daily, but you can manually check using this option anytime.", function()
+    auto_update_config.check_interval = 0
+    if auto_updater.run_auto_update(auto_update_config) then
+        util.toast("No updates found")
+    end
+end)
+
+settings_list:action(T("Clean Reinstall"), {}, T("Force an update to the latest version, regardless of current version."), function()
+    auto_update_config.clean_reinstall = true
+    auto_updater.run_auto_update(auto_update_config)
+end)
+
+settings_list:hyperlink("Join The Discord Server","https://discord.gg/E4m6pMUwpx")
 
 --------
 --LOGO--
