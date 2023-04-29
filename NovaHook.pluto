@@ -125,7 +125,7 @@ function send_to_webhook(pid, detection, new_session, chat_message)
         local RID = players.get_rockstar_id(pid)
         local player_tags = players.get_tags_string(pid)
         player_tags = (string.len(player_tags) > 0) and player_tags or "No tags found"
-        author_name = "Detections/Classification"
+        author_name = "Detection/Classification"
         description = "Name: " .. player_name .. "\\n" ..
                       "Detection: " .. detection .. "\\n" ..
                       "RID: " .. RID .. "\\n" ..
