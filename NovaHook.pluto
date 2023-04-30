@@ -182,7 +182,7 @@ function send_to_webhook(pid, detection, new_session, chat_message)
                 }
               }
             ],
-            "username": "Stand Webhook",
+            "username": "NovaHook",
             "avatar_url": "https://raw.githubusercontent.com/NovaPlays134/NovaHook/main/resources/NovaHook/webhook_logo.png",
             "attachments": []
           }
