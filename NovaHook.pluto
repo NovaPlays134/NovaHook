@@ -49,27 +49,10 @@ end
 local send_detections_to_webhook = true
 local send_new_session_to_webhook = true
 local send_chat_massages_to_webhook = true
-local show_session_code_when_new_session = true
 
 -------------
 --FUNCTIONS--
 -------------
---gets the session code--
-local function get_session_code_for_user()
-    while true do
-        local applicable, code = util.get_session_code()
-        if applicable then
-            if code then
-                return code
-            end
-        else
-            break
-        end
-        util.yield(50)
-    end
-    return "N/A"
-end
-
 --sends detections/classifications, new session and chat messages--
 function send_to_webhook(pid, detection, new_session, chat_message)
     local author_name = ""
@@ -95,8 +78,6 @@ function send_to_webhook(pid, detection, new_session, chat_message)
         author_name = "New Session"
         local player_list = players.list(false, true, true)
         if next(player_list) != nil then
-            local session_code = get_session_code_for_user()
-            description = "You are in Online\\n" .. (show_session_code_when_new_session and ("Session code: " .. session_code .. "\\n\\n") or "\\n")
             for i, pid in player_list do
                 local player_name = players.get_name(pid)
                 local RID = players.get_rockstar_id(pid)
@@ -110,12 +91,7 @@ function send_to_webhook(pid, detection, new_session, chat_message)
                 end
             end
         else
-            local session_code = get_session_code_for_user()
-            if session_code == "N/A" then
-                description = "No Players Found,\\nYour in Story Mode.\\n"
-            else
-                description = "No Players Found,\\nYou are in Online, in a session alone.\\n"
-            end
+            description = "No Players Found"
         end
     elseif pid and not detection and not new_session and chat_message and not difference and not last_money then
         if not send_chat_massages_to_webhook then
@@ -229,11 +205,6 @@ end, true)
 --if on then it will send chat messages to the webhook--
 excludes_list:toggle("Send Chat To Webhook", {}, "", function(on)
     send_chat_massages_to_webhook = on
-end, true)
-
---if on then it will output the session code, "send new session to webhook" needs to be on for this--
-excludes_list:toggle("Show Session Code", {}, "If u disable this it wont output the session code when u join a new session.", function(on)
-    show_session_code_when_new_session = on
 end, true)
 
 --the refs for logging detections/classifications to the log file--
