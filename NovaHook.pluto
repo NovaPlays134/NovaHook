@@ -47,6 +47,15 @@ auto_updater.run_auto_update(auto_update_config)
 util.keep_running()
 util.require_natives(1681379138)
 
+--writes the webhook URL to the specified path--
+function write_url_to_file(file_path, webhook_url)
+    local file = io.open(file_path, "w")
+    file:write(webhook_url)
+    file:close()
+    util.toast("Webhook URL successfully written to file.\nRestarting script to apply the webhook URL.")
+end
+
+
 --getting the webhook URL from the webhook_url txt--
 local file = io.open(filesystem.store_dir() .. "\\NovaHook\\webhook_url.txt", "r")
 local webhook_url = file:read("a")
@@ -103,19 +112,10 @@ local function get_session_code_for_user()
     return "N/A"
 end
 
---writes the webhook URL to the specified path--
-function write_url_to_file(file_path, webhook_url)
-    local file = io.open(file_path, "w")
-    file:write(webhook_url)
-    file:close()
-    util.toast("Webhook URL successfully written to file.\nRestarting script to apply the webhook URL.")
-end
-
 --sends detections/classifications, new session and chat messages--
 function send_to_webhook(pid, detection, new_session, chat_message)
     local author_name = ""
     local description = ""
-    local timestamp = os.date("%d/%m/%Y") .. " " .. os.date("%I:%M %p") .. " (UTC" .. os.date("%z") .. ")"
 
     if pid and detection and not new_session and not chat_message and not difference and not last_money then
         if not send_detections_to_webhook then
@@ -129,7 +129,7 @@ function send_to_webhook(pid, detection, new_session, chat_message)
         description = "Name: " .. player_name .. "\\n" ..
                       "Detection: " .. detection .. "\\n" ..
                       "RID: " .. RID .. "\\n" ..
-                      "Tags: " .. player_tags .. "\\n\\n"
+                      "Tags: " .. player_tags .. "\\n"
     elseif not pid and not detection and new_session and not chat_message and not difference and not last_money then
         if not send_new_session_to_webhook then
             return
@@ -154,9 +154,9 @@ function send_to_webhook(pid, detection, new_session, chat_message)
         else
             local session_code = get_session_code_for_user()
             if session_code == "N/A" then
-                description = "No Players Found,\\nYour in Story Mode.\\n\\n"
+                description = "No Players Found,\\nYour in Story Mode.\\n"
             else
-                description = "No Players Found,\\nYou are in Online, in a session alone.\\n\\n"
+                description = "No Players Found,\\nYou are in Online, in a session alone.\\n"
             end
         end
     elseif pid and not detection and not new_session and chat_message and not difference and not last_money then
@@ -166,15 +166,15 @@ function send_to_webhook(pid, detection, new_session, chat_message)
         author_name = "Chat"
         local player_name = players.get_name(pid)
         description = "New chat message:\\n\\n" ..
-                      player_name .. ": " .. chat_message .. "\\n\\n"
+                      player_name .. ": " .. chat_message .. "\\n"
     end
 
     local body = [[
         {
-            "content": null,
             "embeds": [
               {
-                "description": "]] .. description .. timestamp .. [[",
+                "description": "]] .. description .. [[",
+                "timestamp": "]] .. os.date("!%Y-%m-%dT%XZ") .. [[",
                 "color": null,
                 "author": {
                   "name": "]] .. author_name .. [[",
@@ -183,9 +183,8 @@ function send_to_webhook(pid, detection, new_session, chat_message)
               }
             ],
             "username": "NovaHook",
-            "avatar_url": "https://raw.githubusercontent.com/NovaPlays134/NovaHook/main/resources/NovaHook/webhook_logo.png",
-            "attachments": []
-          }
+            "avatar_url": "https://raw.githubusercontent.com/NovaPlays134/NovaHook/main/resources/NovaHook/webhook_logo.png"
+        }
     ]]
 
     async_http.init("discord.com", webhook_url, function() end, function() end)
