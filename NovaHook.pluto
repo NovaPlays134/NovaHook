@@ -5,6 +5,10 @@
 util.keep_running()
 util.require_natives(1681379138)
 
+if not filesystem.exists(filesystem.store_dir() .. "\\NovaHook") then
+    filesystem.mkdir(filesystem.store_dir() .. "\\NovaHook")
+end
+
 if not filesystem.exists(filesystem.store_dir() .. "\\NovaHook\\webhook_url.txt") then
     local file = io.open(filesystem.store_dir() .. "\\NovaHook\\webhook_url.txt", "w")
     file:close()
