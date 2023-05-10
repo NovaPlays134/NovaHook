@@ -5,6 +5,11 @@
 util.keep_running()
 util.require_natives(1681379138)
 
+if not filesystem.exists(filesystem.store_dir() .. "\\NovaHook\\webhook_url.txt") then
+    local file = io.open(filesystem.store_dir() .. "\\NovaHook\\webhook_url.txt", "w")
+    file:close()
+end
+
 --writes the webhook URL to the specified path--
 function write_url_to_file(file_path, webhook_url)
     local file = io.open(file_path, "w")
