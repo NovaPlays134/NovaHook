@@ -1,9 +1,11 @@
---made by Nova_plays#9126--
---if you need any help with the script dm me or join the discord (https://discord.gg/E4m6pMUwpx)--
+--made by Nova_plays#9126, slightly updated by Davus--
+--if you need any help with the script ask in the respective lua scripts thread or join the discord (https://discord.gg/E4m6pMUwpx)--
 --good luck--
 
-util.keep_running()
-util.require_natives(1681379138)
+if not async_http.have_access() and not SCRIPT_SILENT_START then
+    util.toast("You don't have internet access enabled for NovaHook. The script wont work, please enable internet access first.")
+    util.stop_script()
+end
 
 if not filesystem.exists(filesystem.store_dir() .. "\\NovaHook") then
     filesystem.mkdir(filesystem.store_dir() .. "\\NovaHook")
@@ -31,7 +33,7 @@ file:close()
 --if the URL does not start with '/api' and also not with 'https://discord.com/api/webhooks' then delete the insides of the file--
 if string.len(webhook_url) > 0 and not string.startswith(webhook_url, "/api") and not string.startswith(webhook_url, "https://discord.com/api/webhooks") then
     util.toast("You have set an invalid webhook URL,\nDeleting webhook")
-    local file = io.open(filesystem.store_dir() .. "\\Webhook Url\\webhook_url.txt", "w")
+    local file = io.open(filesystem.store_dir() .. "\\NovaHook\\webhook_url.txt", "w")
     file:close()
 end
 
@@ -70,10 +72,28 @@ else
     end)
 end
 
---excludes--
+--stuff for detections--
+local detections_log = {}
+
+local detection_excludes = { -- make sure to have these strings for the current menu language
+	lang.get_localised(lang.find("Classifications")),
+	lang.get_localised(lang.find("Stand User Identification")),
+	lang.get_localised(lang.find("Any Detection")),
+}
+
+local detection_types = menu.ref_by_path("Online>Protections>Detections"):getChildren():map(|d| -> lang.get_localised(d.menu_name)):filter(|d| -> not d in detection_excludes):reorder()
+
+--option excludes--
 local send_detections_to_webhook = true
 local send_new_session_to_webhook = true
 local send_chat_massages_to_webhook = true
+
+--customize bools--
+local each_thing_own_box = true
+local each_value_own_box = false
+local one_big_box = false
+local no_box = false
+local bold_titles = true
 
 -------------
 --FUNCTIONS--
@@ -83,7 +103,7 @@ function send_to_webhook(pid, detection, new_session, chat_message)
     local author_name = ""
     local description = ""
 
-    if pid and detection and not new_session and not chat_message and not difference and not last_money then
+    if pid and detection and not new_session and not chat_message and not difference then
         if not send_detections_to_webhook then
             return
         end
@@ -91,41 +111,133 @@ function send_to_webhook(pid, detection, new_session, chat_message)
         local RID = players.get_rockstar_id(pid)
         local player_tags = players.get_tags_string(pid)
         player_tags = (string.len(player_tags) > 0) and player_tags or "No tags found"
-        author_name = "Detection/Classification"
-        description = "Name: " .. player_name .. "\\n" ..
-                      "Detection: " .. detection .. "\\n" ..
-                      "RID: " .. RID .. "\\n" ..
-                      "Tags: " .. player_tags .. "\\n"
-    elseif not pid and not detection and new_session and not chat_message and not difference and not last_money then
+        local classifications = menu.ref_by_path("Players>" .. players.get_name_with_tags(pid)):getChildren()[2]:getChildren()
+        local classifications_string = ""
+        for classifications as classification do
+            if classifications_string == "" then
+                classifications_string = lang.get_localised(menu.get_menu_name(classification))
+            else
+                classifications_string = classifications_string .. ", " .. lang.get_localised(menu.get_menu_name(classification))
+            end
+        end
+
+        author_name = "Detection"
+
+        if each_thing_own_box then
+            description = "```\\nName: " .. player_name .. "```\\n" ..
+                          "```\\nDetection: " .. detection .. "```\\n" ..
+                          "```\\nRID: " .. RID .. "```\\n" ..
+                          "```\\nTags: " .. player_tags .. "```\\n" ..
+                          "```\\nClassifications: " .. classifications_string .. "```\\n"
+        elseif each_value_own_box then
+            if bold_titles then
+                description = "**Name:** ```\\n" .. player_name .. "```\\n" ..
+                              "**Detection:** ```\\n" .. detection .. "```\\n" ..
+                              "**RID:** ```\\n" .. RID .. "```\\n" ..
+                              "**Tags:** ```\\n" .. player_tags .. "```\\n" ..
+                              "**Classifications:** ```\\n" .. classifications_string .. "```\\n"
+            else
+                description = "Name: ```\\n" .. player_name .. "```\\n" ..
+                              "Detection: ```\\n" .. detection .. "```\\n" ..
+                              "RID: ```\\n" .. RID .. "```\\n" ..
+                              "Tags: ```\\n" .. player_tags .. "```\\n" ..
+                              "Classifications: ```\\n" .. classifications_string .. "```\\n"
+            end
+        elseif one_big_box then
+            description = "```\\nName: " .. player_name .. "\\n" ..
+                          "Detection: " .. detection .. "\\n" ..
+                          "RID: " .. RID .. "\\n" ..
+                          "Tags: " .. player_tags .. "\\n" ..
+                          "Classifications: " .. classifications_string .. "```\\n"
+        elseif no_box then
+            if bold_titles then
+                description = "**Name:** " .. player_name .. "\\n" ..
+                              "**Detection:** " .. detection .. "\\n" ..
+                              "**RID:** " .. RID .. "\\n" ..
+                              "**Tags:** " .. player_tags .. "\\n" ..
+                              "**Classifications:** " .. classifications_string .. "\\n"
+            else
+                description = "Name: " .. player_name .. "\\n" ..
+                              "Detection: " .. detection .. "\\n" ..
+                              "RID: " .. RID .. "\\n" ..
+                              "Tags: " .. player_tags .. "\\n" ..
+                              "Classifications: " .. classifications_string .. "\\n"
+            end
+        end
+
+    elseif not pid and not detection and new_session and not chat_message then
         if not send_new_session_to_webhook then
             return
         end
         author_name = "New Session"
         local player_list = players.list(false, true, true)
+        if one_big_box then
+            description = "```\\n"
+        end
         if next(player_list) != nil then
             for i, pid in player_list do
                 local player_name = players.get_name(pid)
                 local RID = players.get_rockstar_id(pid)
                 local player_tags = players.get_tags_string(pid)
-                if string.len(player_tags) > 0 then
-                    description = description .. "Name: " .. player_name .. ",\\n" ..
-                                  "Tags: " .. player_tags .. ", RID: " .. RID .. "\\n\\n"
-                else
-                    description = description .. player_name .. ",\\n" ..
-                                  "Tags: No tags found, RID: " .. RID .. "\\n\\n"
+                if string.len(player_tags) <= 0 then
+                    player_tags = "No tags found"
+                end
+
+                if each_thing_own_box or each_value_own_box then
+                    description = description .. "```\\nName: " .. player_name .. "\\n" ..
+                                  "Tags: " .. player_tags .. "\\n" ..
+                                  "RID: " .. RID .. "```\\n\\n"
+                elseif one_big_box then
+                    description = description .. "\\nName: " .. player_name .. "\\n" ..
+                                  "Tags: " .. player_tags .. "\\n" ..
+                                  "RID: " .. RID .. "\\n\\n"
+                elseif no_box then
+                    if bold_titles then
+                        description = description .. "**Name:** " .. player_name .. "\\n" ..
+                                      "**Tags:** " .. player_tags .. "\\n" ..
+                                      "**RID:** " .. RID .. "\\n\\n"
+                    else
+                        description = description .. "Name: " .. player_name .. "\\n" ..
+                                      "Tags: " .. player_tags .. "\\n" ..
+                                      "RID: " .. RID .. "\\n\\n"
+                    end
                 end
             end
         else
-            description = "No Players Found"
+            if each_thing_own_box or each_value_own_box then
+                description = "```\\nNo Players Found.```"
+            elseif one_big_box then
+                description = "```\\nNo Players Found."
+            elseif no_box then
+                description = "No Players Found."
+            end
         end
-    elseif pid and not detection and not new_session and chat_message and not difference and not last_money then
+
+        if one_big_box then
+            description = description .. "```"
+        end
+
+    elseif pid and not detection and not new_session and chat_message then
         if not send_chat_massages_to_webhook then
             return
         end
         author_name = "Chat"
         local player_name = players.get_name(pid)
-        description = "New chat message:\\n\\n" ..
-                      player_name .. ": " .. chat_message .. "\\n"
+        if each_thing_own_box or one_big_box then
+            description = "```\\n" .. player_name .. ": " .. chat_message .. "```\\n"
+        elseif each_value_own_box then
+            if bold_titles then
+                description = "**" .. player_name .. ":**"  .. "```\\n" .. chat_message .. "```\\n"
+            else
+                description = player_name .. "```\\n" .. ": " .. chat_message .. "```\\n"
+            end
+        elseif no_box then
+            if bold_titles then
+                description = "**" .. player_name .. ":**" .. chat_message .. "\\n"
+            else
+                description = player_name .. ": " .. chat_message .. "\\n"
+            end
+        end
     end
 
     local body = [[
@@ -134,7 +246,6 @@ function send_to_webhook(pid, detection, new_session, chat_message)
               {
                 "description": "]] .. description .. [[",
                 "timestamp": "]] .. os.date("!%Y-%m-%dT%XZ") .. [[",
-                "color": null,
                 "author": {
                   "name": "]] .. author_name .. [[",
                   "icon_url": "https://raw.githubusercontent.com/NovaPlays134/NovaHook/main/resources/NovaHook/webhook_logo.png"
@@ -146,55 +257,16 @@ function send_to_webhook(pid, detection, new_session, chat_message)
         }
     ]]
 
-    async_http.init("discord.com", webhook_url, function() end, function() end)
+    async_http.init("discord.com", webhook_url)
     async_http.set_post("application/json", body)
     async_http.dispatch()
 end
 
---gets detections/classifications from the log file--
-local lastFileLength = 0
-function check_for_new_detections_and_class()
-    local file_path = filesystem.stand_dir() .. "Log.txt"
-    local file = io.open(file_path, "r")
-    if not file then return end
-
-    local currentFileLength = file:seek("end")
-    if lastFileLength == 0 or currentFileLength < lastFileLength then
-        lastFileLength = currentFileLength
-        file:close()
-        return
-    elseif currentFileLength == lastFileLength then
-        file:close()
-        return
-    end
-
-    file:seek("set", lastFileLength)
-    local new_detections = {}
-    local detected_player_id = nil
-    for line in file:lines() do
-        if string.contains(line, " triggered a detection:") or string.contains(line, " is now classified") then
-            local timestamp_end = string.find(line, "%]")
-            local new_line = string.sub(line, timestamp_end + 1)
-            local name = string.match(new_line, "^%s*([%-%w_]+)")
-            local line_no_name = string.gsub(new_line, "^%s*([%-%w_]+) triggered a detection:?%s*", "")
-            for i, pid in players.list(false, true, true) do
-                local player_name = players.get_name(pid)
-                if player_name == name then
-                    detected_player_id = pid
-                end
-            end
-            table.insert(new_detections, {detection = line_no_name, pid = detected_player_id})
-        end
-    end
-
-    lastFileLength = currentFileLength
-    file:close()
-    
-    for i, detection in new_detections do
-        if detection.pid != nil and players.exists(detection.pid) then
-            send_to_webhook(detection.pid, detection.detection, false, false)
-        end
-    end
+local function new_detection(pid, name)
+	if not detections_log[pid] then return false end
+	if name in detections_log[pid] then return false end
+	detections_log[pid]:insert(name)
+	return true
 end
 
 -----------
@@ -216,21 +288,95 @@ excludes_list:toggle("Send Chat To Webhook", {}, "", function(on)
     send_chat_massages_to_webhook = on
 end, true)
 
---the refs for logging detections/classifications to the log file--
-local refs = {
-    menu.ref_by_path("Online>Protections>Detections>Any Detection>Write To Log File"),
-    menu.ref_by_path("Online>Protections>Detections>Classifications>Any Classification>Write To Log File"),
-}
---if on it checks for new session, chat message and detections/classifications--
+-------------
+--Customize--
+-------------
+local customize_list = menu.my_root():list("Customize")
+local toggle1 = nil
+local toggle2 = nil
+local toggle3 = nil
+local toggle4 = nil
+
+toggle1 = customize_list:toggle("Each Line Has Its Own Box", {}, "", function(on)
+    if on then
+        if toggle2.value then
+            toggle2:trigger()
+        elseif toggle3.value then
+            toggle3:trigger()
+        elseif toggle4.value then
+            toggle4:trigger()
+        end
+    end
+
+    if not on and not toggle2.value and not toggle3.value and not toggle4.value then
+        toggle1:trigger()
+        util.toast("You need to have atleast one style selected")
+    end
+    each_thing_own_box = on
+end, true)
+
+toggle2 = customize_list:toggle("Each Value Has Its Own Box", {}, "", function(on)
+    if on then
+        if toggle1.value then
+            toggle1:trigger()
+        elseif toggle3.value then
+            toggle3:trigger()
+        elseif toggle4.value then
+            toggle4:trigger()
+        end
+    end
+
+    if not on and not toggle1.value and not toggle3.value and not toggle4.value then
+        toggle1:trigger()
+        util.toast("You need to have atleast one style selected")
+    end
+    each_value_own_box = on
+end)
+
+toggle3 = customize_list:toggle("One Big Box", {}, "", function(on)
+    if on then
+        if toggle1.value then
+            toggle1:trigger()
+        elseif toggle2.value then
+            toggle2:trigger()
+        elseif toggle4.value then
+            toggle4:trigger()
+        end
+    end
+
+    if not on and not toggle1.value and not toggle2.value and not toggle4.value then
+        toggle1:trigger()
+        util.toast("You need to have atleast one style selected")
+    end
+    one_big_box = on
+end)
+
+toggle4 = customize_list:toggle("No Box", {}, "", function(on)
+    if on then
+        if toggle1.value then
+            toggle1:trigger()
+        elseif toggle2.value then
+            toggle2:trigger()
+        elseif toggle3.value then
+            toggle3:trigger()
+        end
+    end
+
+    if not on and not toggle1.value and not toggle2.value and not toggle3.value then
+        toggle1:trigger()
+        util.toast("You need to have atleast one style selected")
+    end
+    no_box = on
+end)
+
+customize_list:toggle("Bold Titles", {}, "Only works if 'Each Value Has Its Own Box' or 'No Box' is selected.", function(on)
+    bold_titles = on
+end, true)
+
+--if on it checks for new session, chat message and detections--
 local values = {}
 webhook_toggle = menu.my_root():toggle("Webhook", {}, "", function(on)
     if on then
-        --set the value of the refs to enable, so this will log everything it detects--
-        for i, ref in refs do
-            values[i] = ref.value
-            ref.value = 3
-        end
-
         --does something when the transition is finished (so a new session), in this case we send info too the webhook--
         new_session_handler = util.on_transition_finished(function()
             send_to_webhook(false, false, true, false)
@@ -241,25 +387,27 @@ webhook_toggle = menu.my_root():toggle("Webhook", {}, "", function(on)
             send_to_webhook(message_sender, false, false, text)
         end)
 
-        --while on == true then check for new detections (it already sends it to the webhook in the function) every second--
-        while on do
-            check_for_new_detections_and_class()
-            on = webhook_toggle.value
-            util.yield(1000)
-        end
+        --instead of checking the log file, using this fancy way to listen for detections (Note: it won't include detections added by other scripts, such as JinxScript)--
+		new_detection_handler = players.on_flow_event_done(function(pid, name, extra)
+			name = lang.get_localised(name)
+			if not name in detection_types then return end
+
+			if extra then
+				name ..= $" ({extra})"
+			end
+
+			if new_detection(pid, name) then
+				send_to_webhook(pid, name, false, false)
+			end
+		end)
     end
     if not on then
-        --stop the on_transition_finished handler--
+        --stop the respective handlers--
         util.remove_handler(new_session_handler)
         util.remove_handler(new_chat_handler)
-        --set the values of the option we have put to enable back as how there were--
-        for i, ref in refs do
-            ref.value = values[i]
-        end
+		util.remove_handler(new_detection_handler)
     end
 end)
-
-menu.my_root():hyperlink("Join The Discord Server","https://discord.gg/E4m6pMUwpx")
 
 --------
 --LOGO--
@@ -279,7 +427,7 @@ if SCRIPT_MANUAL_START and not SCRIPT_SILENT_START then
         end
 
         for i = 1, 220 do
-            directx.draw_texture(logo, 0.10, 0.10, 0.5, 0.5, 0.09, 0.73, 0, {r = 1, g = 1, b = 1, a = 255})
+            directx.draw_texture(logo, 0.10, 0.10, 0.5, 0.5, 0.09, 0.73, 0, {r = 1, g = 1, b = 1, a = 1})
             util.yield(0)
         end
 
@@ -293,3 +441,6 @@ if SCRIPT_MANUAL_START and not SCRIPT_SILENT_START then
         end
     end)
 end
+
+players.add_command_hook(function(pid) detections_log[pid] = {} end)
+players.on_leave(function(pid) detections_log[pid] = nil end)
